@@ -1,7 +1,7 @@
 <?php
 
 header('Content-Type: application/json');
-header('Content-Type: text/html; charset=utf-8');
+
 define('DS', DIRECTORY_SEPARATOR, true);
 define('BASE_PATH', dirname(dirname(__FILE__)).DS, TRUE);
 
