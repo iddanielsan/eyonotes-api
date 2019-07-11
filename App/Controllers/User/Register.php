@@ -7,11 +7,11 @@ use Illuminate\Database\Capsule\Manager as DB;
 use App\Classes\Security\Communication as Communication;
 
 class Register{
+	private $user_id;
 	private $req;
 
 	public function init(){
 
-		// Verifica se os dados brutos foram recebidos
 		if(!isset(app('request')->body['data'])){
 			Status::render_error(400, "client", "invalid_request");
 		} else{
@@ -25,29 +25,55 @@ class Register{
 		$validate->required('user_lastname')->string();
 		$result = $validate->validate($this->req);
 
-		/*
-		* Checa se os dados acima foram recebidos no formato string.
-		*/
 		if(!$result->isValid()){
 			Status::render_error(400, "client", json_encode($result->getMessages()));
-		}
-
-		/*
-		* Checa se o método de criptografia é válido.
-		*/
-		else if($this->encryption_is_not_valid($this->req)){
+		} else if($this->encryption_is_not_valid($this->req)){
 			Status::render_error(400, "client", "invalid_encryption_method");
-		}
-
-		/*
-		* Checa se o e-mail é válida e se já está registrado.
-		*/
-		else if(!$this->email_is_valid()){
+		} else if(!$this->email_is_valid()){
 			Status::render_error(422, "user", "email_already_registered");
+		} else{
+			$this->register();
 		}
 
 	}
 
+	/*
+	* Registra o usuário.
+	*/
+	private function register(){
+		$this->user_id = DB::table("eyo_accounts")->insertGetId([
+			'user_email' => $this->dec($this->req['user_email']),
+			'user_password' => password_hash($this->dec($this->req['user_password']), PASSWORD_DEFAULT),
+			'user_firstname' => $this->dec($this->req['user_firstname']),
+      	'user_lastname' => $this->dec($this->req['user_lastname']),
+      	'account_status' => 1
+		]);
+
+		if(!$this->user_id){
+			Status::render_error(503, "fatal", "service_register_unavailable");
+		} else{
+			$this->create_confirmation_code();
+		}
+	}
+
+	/*
+	* Cria o código de ativação.
+	*/
+	private function create_confirmation_code(){
+		$this->activation_code_id = DB::table("eyo_activations_code")->insertGetId([
+			'uid' => $this->user_id,
+			'code' => bin2hex(random_bytes(3)),
+			'duration' => time()+900]
+    	);
+
+    	http_response_code(201);
+      exit;
+	}
+
+
+	/*
+	*	Retorna "true" se o método de encriptação for inválido.
+	*/ 
 	private function encryption_is_not_valid($params){
 		foreach($params as $param){
 			if(!Communication::decode($param)){
@@ -56,6 +82,9 @@ class Register{
 		}
 	}
 
+	/*
+	* Retorna "true" se o e-mail for válida e se ainda não estiver registrado.
+	*/
 	private function email_is_valid(){
 		if(!filter_var($this->dec($this->req['user_email']), FILTER_VALIDATE_EMAIL)){
 			return false;
@@ -66,7 +95,10 @@ class Register{
 		}
 	}
 
-	private function dec($q){
+	/*
+	* Apenas para encurtar.
+	*/
+	private function dec($p){
 		return Communication::decode($p);
 	}
 }
