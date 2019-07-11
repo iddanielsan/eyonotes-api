@@ -2,5 +2,6 @@
 
 $route->before('/', 'App\Middlewares\ClientAuth@init');
 
-$route->get('/', function(){
+$route->group('/user', function(){
+	$this->post('/register', 'App\Controllers\User\Register@init');
 });
