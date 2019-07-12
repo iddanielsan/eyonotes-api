@@ -13,8 +13,8 @@ class Activation{
     
     public function init(){
         if(!isset(app('request')->body['data'])){
-			Status::render_error(400, "client", "invalid_request");
-		}
+            Status::render_error(400, "client", "invalid_request");
+        }
         
         $this->req = app('request')->body['data'];
         
@@ -24,8 +24,8 @@ class Activation{
         $result = $validate->validate($this->req);
         
         if(!$result->isValid()){
-			Status::render_error(400, "client", json_encode($result->getMessages()));
-		} 
+            Status::render_error(400, "client", json_encode($result->getMessages()));
+        } 
         
         if($this->encryption_is_not_valid($this->req)){
 			Status::render_error(400, "client", "invalid_encryption_method");
@@ -36,6 +36,19 @@ class Activation{
         
         if(!$this->check_code()["status"]){
             Status::render_error(400, $this->check_code()["class"], $this->check_code()["message"]);
+        }
+        
+        $this->activate();
+    }
+    
+    
+    private function activate(){
+        if(!DB::table("eyo_accounts")->where('id', $this->uid)->update(['account_status' => "x2"])){
+            Status::render_error(503, "server", "service_unavailable");
+        } else {
+            DB::table("eyo_activations_code")->where('code', $this->code)->delete();
+            http_response_code(201);
+            exit;
         }
     }
     
